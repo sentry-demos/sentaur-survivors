@@ -20,6 +20,8 @@ public class ScoreEntry
 
 public class ScorePoster : MonoBehaviour
 {
+    [SerializeField]
+    private GameObject _root;
     [SerializeField] 
     private TMP_InputField _nameField;
     [SerializeField] 
@@ -29,23 +31,50 @@ public class ScorePoster : MonoBehaviour
     
     private BattleSceneManager _gameManager;
     private DemoConfiguration _demoConfig;
+    private TextMeshProUGUI _buttonText;
+
+    private string _jwtToken;
     
     private void Awake()
     {
         _gameManager = GameObject.Find("GameManager").GetComponent<BattleSceneManager>();
         _demoConfig = Resources.Load("DemoConfig") as DemoConfiguration;
+        _buttonText = _submitButton.GetComponentInChildren<TextMeshProUGUI>();
         
         _submitButton.onClick.AddListener(OnSubmit);
+
+        if (_demoConfig != null && _demoConfig.Enabled && !string.IsNullOrEmpty(_demoConfig.ApiUrl))
+        {
+            StartCoroutine(Login());
+        }
     }
 
-    public void OnEnable()
+    public void Enable()
     {
-        if (_demoConfig == null 
-            || !_demoConfig.Enabled 
-            || string.IsNullOrEmpty(_demoConfig.ApiUrl) 
-            || string.IsNullOrEmpty(_demoConfig.Psk))
+        // If we did not manage to login during `Awake` (which means scene loading) then we do not display the upload screen
+        if (_jwtToken != null)
         {
-            gameObject.SetActive(false);
+            _root.SetActive(true);
+        }
+    }
+    
+    IEnumerator Login()
+    {
+        var json = JsonUtility.ToJson(_demoConfig.User);
+        
+        using var www = UnityWebRequest.Post(_demoConfig.ApiUrl + "/token", json, "application/json");
+        
+        yield return www.SendWebRequest();
+        
+        if (www.result == UnityWebRequest.Result.Success)
+        {
+            Debug.Log("Login to leaderboard successful.");
+            _jwtToken = www.downloadHandler.text.Replace("\"", "");
+        }
+        else
+        {
+            Debug.Log("Login to leaderboard failed.");
+            _jwtToken = null;
         }
     }
 
@@ -68,22 +97,23 @@ public class ScorePoster : MonoBehaviour
 
         var json = JsonUtility.ToJson(score);
         
-        using var www = UnityWebRequest.Post(_demoConfig.ApiUrl, json, "application/json");
+        using var www = UnityWebRequest.Post(_demoConfig.ApiUrl + "/score", json, "application/json");
+        www.SetRequestHeader("Authorization", "Bearer " + _jwtToken);
         
         yield return www.SendWebRequest();
 
         if (www.result != UnityWebRequest.Result.Success)
         {
-            Debug.Log("Failed to upload score.");
+            Debug.Log("Uploading score to leaderboard failed.");
             SentrySdk.CaptureException(new HttpRequestException("Failed to upload score."));
             
-            var buttonText = _submitButton.GetComponentInChildren<TextMeshProUGUI>();
-            buttonText.text = "Retry";
+            _buttonText.text = "Retry";
         }
         else
         {
+            Debug.Log("Uploading score to leaderboard was successful.");
             _submitButton.interactable = false;
-            Debug.Log("Score uploaded.");
+            _buttonText.text = "Posted!";
         }
     }
 }

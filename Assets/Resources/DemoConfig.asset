@@ -13,5 +13,7 @@ MonoBehaviour:
   m_Name: DemoConfig
   m_EditorClassIdentifier: 
   Enabled: 1
-  ApiUrl: '"http://localhost:5203/score"'
-  Psk: somepsk
+  ApiUrl: http://localhost:5203
+  User:
+    Username: user1
+    Password: password1

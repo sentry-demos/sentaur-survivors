@@ -64,17 +64,33 @@ public class ScorePoster : MonoBehaviour
         
         using var www = UnityWebRequest.Post(_demoConfig.ApiUrl + "/token", json, "application/json");
         
+        var loginSpan = _gameManager.GameTransaction.StartChild("scoreposter", "login");
+        var traceHeader = SentrySdk.GetTraceHeader();
+        var baggage = SentrySdk.GetBaggage();
+        if (traceHeader != null)
+        {
+            www.SetRequestHeader("sentry-trace", traceHeader.ToString());
+            if (baggage != null)
+            {
+                www.SetRequestHeader("baggage", baggage.ToString());    
+            }
+        }
+
         yield return www.SendWebRequest();
         
         if (www.result == UnityWebRequest.Result.Success)
         {
             Debug.Log("Login to leaderboard successful.");
             _jwtToken = www.downloadHandler.text.Replace("\"", "");
+            
+            loginSpan.Finish(SpanStatus.Ok);
         }
         else
         {
             Debug.Log("Login to leaderboard failed.");
             _jwtToken = null;
+            
+            loginSpan.Finish(SpanStatus.Unauthenticated);
         }
     }
 
@@ -96,9 +112,22 @@ public class ScorePoster : MonoBehaviour
         };
 
         var json = JsonUtility.ToJson(score);
+
+        var uploadTransaction = SentrySdk.StartTransaction("scoreposter", "upload");
+        SentrySdk.ConfigureScope(scope => scope.Transaction = uploadTransaction);
         
         using var www = UnityWebRequest.Post(_demoConfig.ApiUrl + "/score", json, "application/json");
         www.SetRequestHeader("Authorization", "Bearer " + _jwtToken);
+        var traceHeader = SentrySdk.GetTraceHeader();
+        var baggage = SentrySdk.GetBaggage();
+        if (traceHeader != null)
+        {
+            www.SetRequestHeader("sentry-trace", traceHeader.ToString());
+            if (baggage != null)
+            {
+                www.SetRequestHeader("baggage", baggage.ToString());    
+            }
+        }
         
         yield return www.SendWebRequest();
 
@@ -108,12 +137,14 @@ public class ScorePoster : MonoBehaviour
             SentrySdk.CaptureException(new HttpRequestException("Failed to upload score."));
             
             _buttonText.text = "Retry";
+            uploadTransaction.Finish(SpanStatus.Unavailable);
         }
         else
         {
             Debug.Log("Uploading score to leaderboard was successful.");
             _submitButton.interactable = false;
             _buttonText.text = "Posted!";
+            uploadTransaction.Finish(SpanStatus.Ok);
         }
     }
 }

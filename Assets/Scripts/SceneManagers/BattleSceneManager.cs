@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Sentry;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Tilemaps;
@@ -123,6 +124,16 @@ public class BattleSceneManager : MonoBehaviour
     private float _lastEnemySpawnTime = 0.0f;
     private float _lastSpawnRampUp = 0.0f;
     private int _spawnRampUpInterval = 10;
+
+    public ITransactionTracer GameTransaction { get; private set; }
+    private ISpan _pauseSpan;
+
+    private int _totalEnemiesSpawned;
+    private int _totalEnemiesDestroyed;
+
+    private int _totalPickupsSpawned;
+    private int _totalPickupsGrabbed;
+    private int _totalPickupsExpired;
 
     public enum EnemyType
     {
@@ -256,10 +267,16 @@ public class BattleSceneManager : MonoBehaviour
                 OnUpgradeChosen((UpgradeEventData)eventData.Data);
             }
         );
+
+        GameTransaction = SentrySdk.StartTransaction("game", "battle");
+        SentrySdk.ConfigureScope(scope => scope.Transaction = GameTransaction);
     }
 
     private void OnPickupGrabbed(List<object> eventData)
     {
+        _totalPickupsGrabbed++;
+        SentrySdk.Metrics.Increment("Pickup", tags: new Dictionary<string, string>{{ "State", "Grabbed"}});
+        
         int scoreValue = (int)eventData[0];
         SetScore(_score + scoreValue);
         _pickupsOnScreen -= 1;
@@ -274,6 +291,9 @@ public class BattleSceneManager : MonoBehaviour
 
     private void OnPickupExpired(string pickupName)
     {
+        _totalPickupsExpired++;
+        SentrySdk.Metrics.Increment("Pickup", tags: new Dictionary<string, string>{{ "State", "Expired"}});
+        
         _activePickupContainer.transform.Find(pickupName).gameObject.SetActive(false);
     }
 
@@ -321,11 +341,16 @@ public class BattleSceneManager : MonoBehaviour
 
     private void OnEnemyDestroyed(int scoreValue)
     {
+        _totalEnemiesDestroyed++;
+        SentrySdk.Metrics.Increment("Enemy", tags: new Dictionary<string, string>{{ "State", "Destroyed"}});
+        
         SetScore(_score + scoreValue);
     }
 
     public void PauseGame()
     {
+        _pauseSpan = GameTransaction.StartChild("Paused");
+        
         _gameState = GameState.Paused;
 
         // stop playing the background music when the game stops
@@ -354,6 +379,14 @@ public class BattleSceneManager : MonoBehaviour
 
     private void OnPlayerDeath()
     {
+        SentrySdk.Metrics.Distribution("Pickup", _totalPickupsSpawned, tags:new Dictionary<string, string> {{ "Session", "Spawned"}});
+        SentrySdk.Metrics.Distribution("Pickup", _totalPickupsGrabbed, tags:new Dictionary<string, string> {{ "Session", "Grabbed"}});
+        SentrySdk.Metrics.Distribution("Pickup", _totalPickupsExpired, tags:new Dictionary<string, string> {{ "Session", "Expired"}});
+        
+        SentrySdk.Metrics.Distribution("Enemy", _totalEnemiesSpawned, tags:new Dictionary<string, string> {{ "Session", "Spawned"}});
+        SentrySdk.Metrics.Distribution("Enemy", _totalEnemiesDestroyed, tags:new Dictionary<string, string> {{ "Session", "Destroyed"}});
+        
+        GameTransaction.Finish();
         _gameState = GameState.GameOver;
         // stop playing the background music when the game stops
         _backgroundMusic.Stop();
@@ -586,6 +619,9 @@ public class BattleSceneManager : MonoBehaviour
         //   level 8:   1-5 enemies ... etc
         int waveSize = Random.Range(1, (int)(_currentLevel * _maxWaveSizeScaleFactor));
         SpawnEnemyWave(prefab, waveSize);
+        
+        SentrySdk.Metrics.Increment("Enemy", tags: new Dictionary<string, string> {{ "State", "Spawned"}}, value: waveSize);
+        SentrySdk.Metrics.Distribution("Enemy", waveSize, tags: new Dictionary<string, string> {{ "Type", ((EnemyType)spawnChoice).ToString()}});
     }
 
     private void SpawnEnemyWave(GameObject prefab, int count)
@@ -643,6 +679,9 @@ public class BattleSceneManager : MonoBehaviour
 
         pickup.transform.position = GetRandomSpawnPoint();
         _pickupsOnScreen++;
+
+        _totalPickupsSpawned++;
+        SentrySdk.Metrics.Increment("Pickup", tags:new Dictionary<string, string> {{ "State", "Spawned"}});
     }
 
     private void OnUpgradeChosen(UpgradeEventData upgradeEvent)
@@ -674,5 +713,7 @@ public class BattleSceneManager : MonoBehaviour
             default:
                 break;
         }
+        
+        SentrySdk.Metrics.Increment("Upgrade", tags:new Dictionary<string, string> {{ "Type", upgradeEvent.UpgradeType.ToString()}, {"Level", newLevel.ToString()}});
     }
 }

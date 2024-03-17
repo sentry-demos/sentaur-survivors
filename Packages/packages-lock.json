@@ -143,7 +143,7 @@
       }
     },
     "com.unity.ide.rider": {
-      "version": "3.0.24",
+      "version": "3.0.28",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -257,11 +257,11 @@
       "url": "https://packages.unity.com"
     },
     "io.sentry.unity": {
-      "version": "https://github.com/getsentry/unity.git#2.0.1",
+      "version": "https://github.com/getsentry/unity.git#2.0.2",
       "depth": 0,
       "source": "git",
       "dependencies": {},
-      "hash": "486733cf1a2c981b608a3f7421fa59f79de328cc"
+      "hash": "9363e6ca9927ea6e550f5feedb5fca3318c5c497"
     },
     "com.unity.modules.ai": {
       "version": "1.0.0",

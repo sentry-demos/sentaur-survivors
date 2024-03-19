@@ -42,7 +42,11 @@ public class ScorePoster : MonoBehaviour
         _buttonText = _submitButton.GetComponentInChildren<TextMeshProUGUI>();
         
         _submitButton.onClick.AddListener(OnSubmit);
+    }
 
+    public void Start()
+    {
+        // Doing this in start so everything else can awake
         if (_demoConfig != null && _demoConfig.Enabled && !string.IsNullOrEmpty(_demoConfig.ApiUrl))
         {
             StartCoroutine(Login());

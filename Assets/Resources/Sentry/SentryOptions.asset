@@ -19,10 +19,10 @@ MonoBehaviour:
   <DebounceTimeLog>k__BackingField: 1000
   <DebounceTimeWarning>k__BackingField: 1000
   <DebounceTimeError>k__BackingField: 1000
-  <TracesSampleRate>k__BackingField: 0
+  <TracesSampleRate>k__BackingField: 1
   <AutoStartupTraces>k__BackingField: 1
   <AutoSceneLoadTraces>k__BackingField: 1
-  <AutoAwakeTraces>k__BackingField: 0
+  <AutoAwakeTraces>k__BackingField: 1
   <AutoSessionTracking>k__BackingField: 0
   <AutoSessionTrackingInterval>k__BackingField: 30000
   <ReleaseOverride>k__BackingField: 
@@ -61,6 +61,7 @@ MonoBehaviour:
   <AndroidNativeSupportEnabled>k__BackingField: 1
   <NdkIntegrationEnabled>k__BackingField: 1
   <NdkScopeSyncEnabled>k__BackingField: 1
+  <PostGenerateGradleProjectCallbackOrder>k__BackingField: 1
   <WindowsNativeSupportEnabled>k__BackingField: 1
   <MacosNativeSupportEnabled>k__BackingField: 1
   <LinuxNativeSupportEnabled>k__BackingField: 1
